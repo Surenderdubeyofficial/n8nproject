@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Resume Builder</title>
+<style>
+  :root {
+    --brand: #4f46e5;
+    --brand-dark: #4338ca;
+    --bg-grad: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+    --err: #dc2626;
+    --ok: #16a34a;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #d1d5db;
+    --field-bg: #f9fafb;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg-grad);
+    background-attachment: fixed;
+    color: var(--text);
+    line-height: 1.5;
+    padding: 24px 16px;
+    min-height: 100vh;
+  }
+  .card {
+    max-width: 760px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+  .card__header {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    color: #fff;
+    padding: 36px 32px;
+    text-align: center;
+  }
+  .card__header h1 { margin: 0 0 6px; font-size: 28px; letter-spacing: .5px; }
+  .card__header p { margin: 0; opacity: .9; font-size: 15px; }
+  form { padding: 32px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .field { display: flex; flex-direction: column; }
+  .field.full { grid-column: 1 / -1; }
+  label {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  label .req { color: var(--err); }
+  input, select, textarea {
+    font: inherit;
+    color: var(--text);
+    background: var(--field-bg);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    width: 100%;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--brand);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+  }
+  textarea { resize: vertical; min-height: 90px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .error-msg {
+    color: var(--err);
+    font-size: 12.5px;
+    margin-top: 5px;
+    min-height: 1em;
+    display: none;
+  }
+  .field.invalid input,
+  .field.invalid select,
+  .field.invalid textarea { border-color: var(--err); background: #fef2f2; }
+  .field.invalid .error-msg { display: block; }
+  .actions { margin-top: 28px; }
+  button {
+    width: 100%;
+    background: var(--brand);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s, transform .05s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  button:hover:not(:disabled) { background: var(--brand-dark); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .7; cursor: not-allowed; }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2.5px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .alert {
+    display: none;
+    margin: 0 32px 24px;
+    padding: 18px 20px;
+    border-radius: var(--radius);
+    font-size: 14.5px;
+  }
+  .alert.show { display: block; }
+  .alert--ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+  .alert--err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  .alert h3 { margin: 0 0 6px; font-size: 16px; }
+  .alert a { color: inherit; font-weight: 700; }
+  .footer-note { text-align: center; color: var(--muted); font-size: 12px; padding: 0 32px 26px; }
+  @media (max-width: 600px) {
+    .grid { grid-template-columns: 1fr; }
+    .card__header { padding: 28px 20px; }
+    form { padding: 22px; }
+    .alert { margin: 0 22px 20px; }
+    .footer-note { padding: 0 22px 22px; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="card__header">
+      <h1>AI Resume Builder</h1>
+      <p>Fill in your details and get a polished, AI-generated resume delivered to your inbox.</p>
+    </div>
+
+    <div id="successAlert" class="alert alert--ok">
+      <h3>🎉 Success! Your resume is on its way.</h3>
+      <p id="successText">We've generated your resume and emailed you a secure link. Check your inbox (and spam folder).</p>
+    </div>
+    <div id="errorAlert" class="alert alert--err">
+      <h3>Something went wrong</h3>
+      <p id="errorText">We couldn't process your request. Please try again.</p>
+    </div>
+
+    <form id="resumeForm" novalidate>
+      <div class="grid">
+        <div class="field">
+          <label for="name">Full Name <span class="req">*</span></label>
+          <input type="text" id="name" name="name" placeholder="e.g. Priya Sharma" />
+          <div class="error-msg" data-for="name"></div>
+        </div>
+
+        <div class="field">
+          <label for="email">Email <span class="req">*</span></label>
+          <input type="email" id="email" name="email" placeholder="e.g. priya@example.com" />
+          <div class="error-msg" data-for="email"></div>
+        </div>
+
+        <div class="field">
+          <label for="phone">Phone Number <span class="req">*</span></label>
+          <input type="tel" id="phone" name="phone" placeholder="e.g. +91 98765 43210" />
+          <div class="error-msg" data-for="phone"></div>
+        </div>
+
+        <div class="field">
+          <label for="city">City <span class="req">*</span></label>
+          <input type="text" id="city" name="city" placeholder="e.g. Bangalore" />
+          <div class="error-msg" data-for="city"></div>
+        </div>
+
+        <div class="field">
+          <label for="experience">Years of Experience <span class="req">*</span></label>
+          <input type="number" id="experience" name="experience" min="0" step="1" placeholder="e.g. 5" />
+          <div class="error-msg" data-for="experience"></div>
+        </div>
+
+        <div class="field">
+          <label for="resume_type">Resume Type <span class="req">*</span></label>
+          <select id="resume_type" name="resume_type">
+            <option value="Professional">Professional Resume</option>
+            <option value="Creative">Creative Resume</option>
+            <option value="Tech">Tech Resume</option>
+          </select>
+          <div class="error-msg" data-for="resume_type"></div>
+        </div>
+
+        <div class="field full">
+          <label for="skills">Skills <span class="req">*</span></label>
+          <textarea id="skills" name="skills" placeholder="Comma or line separated, e.g. Java, Spring Boot, Kubernetes, AWS"></textarea>
+          <div class="hint">Separate skills with commas or new lines.</div>
+          <div class="error-msg" data-for="skills"></div>
+        </div>
+
+        <div class="field full">
+          <label for="work_experience">Work Experience <span class="req">*</span></label>
+          <textarea id="work_experience" name="work_experience" placeholder="One role per line, e.g.&#10;Senior Backend Engineer at FinTechCo (2021-present)&#10;Backend Engineer at PayStack (2019-2021)"></textarea>
+          <div class="hint">Put each role on its own line.</div>
+          <div class="error-msg" data-for="work_experience"></div>
+        </div>
+
+        <div class="field full">
+          <label for="education">Education <span class="req">*</span></label>
+          <textarea id="education" name="education" placeholder="e.g. B.Tech Computer Science, IISc (2019)"></textarea>
+          <div class="error-msg" data-for="education"></div>
+        </div>
+
+        <div class="field full">
+          <label for="career_objective">Career Objective <span class="req">*</span></label>
+          <textarea id="career_objective" name="career_objective" placeholder="e.g. Design resilient, high-scale financial systems."></textarea>
+          <div class="error-msg" data-for="career_objective"></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="submitBtn">
+          <span class="spinner" id="spinner"></span>
+          <span id="btnText">Generate My Resume</span>
+        </button>
+      </div>
+    </form>
+
+    <div class="footer-note">Your details are only used to generate your resume.</div>
+  </div>
+
+<script>
+  const WEBHOOK_URL = "https://surenderdubey.app.n8n.cloud/webhook/ai-resume-builder";
+
+  const form = document.getElementById("resumeForm");
+  const submitBtn = document.getElementById("submitBtn");
+  const spinner = document.getElementById("spinner");
+  const btnText = document.getElementById("btnText");
+  const successAlert = document.getElementById("successAlert");
+  const successText = document.getElementById("successText");
+  const errorAlert = document.getElementById("errorAlert");
+  const errorText = document.getElementById("errorText");
+
+  let submitting = false;
+
+  const setError = (fieldName, message) => {
+    const field = document.getElementById(fieldName).closest(".field");
+    const msg = field.querySelector('.error-msg');
+    if (message) {
+      field.classList.add("invalid");
+      msg.textContent = message;
+    } else {
+      field.classList.remove("invalid");
+      msg.textContent = "";
+    }
+  };
+
+  const validators = {
+    name: (v) => v.trim() ? "" : "Name is required.",
+    email: (v) => {
+      if (!v.trim()) return "Email is required.";
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? "" : "Enter a valid email address.";
+    },
+    phone: (v) => {
+      if (!v.trim()) return "Phone number is required.";
+      // Allow digits, spaces, +, -, (), min 7 digits
+      const digits = v.replace(/\D/g, "");
+      if (digits.length < 7 || digits.length > 15) return "Enter a valid phone number.";
+      return /^[+]?[\d\s\-()]{7,20}$/.test(v.trim()) ? "" : "Enter a valid phone number.";
+    },
+    city: (v) => v.trim() ? "" : "City is required.",
+    experience: (v) => {
+      if (v.trim() === "") return "Years of experience is required.";
+      return (!isNaN(Number(v)) && Number(v) >= 0) ? "" : "Must be a number.";
+    },
+    skills: (v) => v.trim() ? "" : "At least one skill is required.",
+    work_experience: (v) => v.trim() ? "" : "Work experience is required.",
+    education: (v) => v.trim() ? "" : "Education is required.",
+    career_objective: (v) => v.trim() ? "" : "Career objective is required.",
+  };
+
+  const validateForm = () => {
+    let valid = true;
+    for (const [fieldName, fn] of Object.entries(validators)) {
+      const el = document.getElementById(fieldName);
+      const err = fn(el.value);
+      setError(fieldName, err);
+      if (err) valid = false;
+    }
+    return valid;
+  };
+
+  // Live-clear errors as the user types
+  Object.keys(validators).forEach((fieldName) => {
+    const el = document.getElementById(fieldName);
+    el.addEventListener("input", () => {
+      if (el.closest(".field").classList.contains("invalid")) {
+        setError(fieldName, validators[fieldName](el.value));
+      }
+    });
+  });
+
+  const setLoading = (isLoading) => {
+    submitting = isLoading;
+    submitBtn.disabled = isLoading;
+    spinner.style.display = isLoading ? "inline-block" : "none";
+    btnText.textContent = isLoading ? "Generating…" : "Generate My Resume";
+  };
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (submitting) return; // prevent double submission
+
+    successAlert.classList.remove("show");
+    errorAlert.classList.remove("show");
+
+    if (!validateForm()) {
+      // focus first invalid field
+      const firstInvalid = form.querySelector(".field.invalid input, .field.invalid select, .field.invalid textarea");
+      if (firstInvalid) firstInvalid.focus();
+      return;
+    }
+
+    const payload = {
+      name: document.getElementById("name").value.trim(),
+      email: document.getElementById("email").value.trim(),
+      phone: document.getElementById("phone").value.trim(),
+      city: document.getElementById("city").value.trim(),
+      experience: document.getElementById("experience").value.trim(),
+      skills: document.getElementById("skills").value.trim(),
+      education: document.getElementById("education").value.trim(),
+      work_experience: document.getElementById("work_experience").value.trim(),
+      career_objective: document.getElementById("career_objective").value.trim(),
+      resume_type: document.getElementById("resume_type").value,
+    };
+
+    setLoading(true);
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch (_) { /* non-JSON response */ }
+
+      if (res.ok && (!data || data.success !== false)) {
+        successAlert.classList.add("show");
+        if (data && data.resumeUrl) {
+          successText.innerHTML =
+            'We\'ve generated your resume and emailed you a secure link. ' +
+            'You can also open it here: <a href="' + data.resumeUrl + '" target="_blank" rel="noopener">View my resume</a> ' +
+            '(it is password protected — the password is in your email).';
+        }
+        successAlert.scrollIntoView({ behavior: "smooth", block: "center" });
+        form.reset();
+      } else {
+        // Server-side validation errors or failure
+        let msg = "We couldn't process your request. Please try again.";
+        if (data && Array.isArray(data.errors) && data.errors.length) {
+          msg = data.errors.join(" ");
+        } else if (data && data.message) {
+          msg = data.message;
+        }
+        errorText.textContent = msg;
+        errorAlert.classList.add("show");
+        errorAlert.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    } catch (err) {
+      errorText.textContent =
+        "Could not reach the server. Please check your connection and try again.";
+      errorAlert.classList.add("show");
+      errorAlert.scrollIntoView({ behavior: "smooth", block: "center" });
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+</body>
+</html>
